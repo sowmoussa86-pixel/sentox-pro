@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTOX PRO</title>
+</head>
+
+<body>
+
+<h2>SENTOX PRO</h2>
+
+<input id="input" placeholder="paracetamol ou paracetamol, alcool">
+<button onclick="run()">Analyser</button>
+<button onclick="pdf()">PDF</button>
+
+<div id="res"></div>
+
+<script>
+async function run() {
+  const val = document.getElementById("input").value;
+
+  if (val.includes(",")) {
+    const list = val.split(",").map(x => x.trim().toLowerCase());
+
+    const r = await fetch("/interaction", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ produits: list })
+    });
+
+    const d = await r.json();
+    document.getElementById("res").innerHTML =
+      "Interactions:<br>" + d.interactions.join("<br>");
+
+  } else {
+    const r = await fetch("/analyse?nom=" + val);
+    const d = await r.json();
+
+    document.getElementById("res").innerHTML = `
+      Produit: ${d.produit}<br>
+      Type: ${d.type}<br>
+      Risque: ${d.risque}<br>
+      Effets: ${d.effets}<br>
+      Conduite: ${d.conduite}<br>
+      IA: ${d.ia}
+    `;
+  }
+}
+
+function pdf() {
+  const val = document.getElementById("input").value;
+  window.open("/pdf?nom=" + val);
+}
+</script>
+
+</body>
+</html>
