@@ -1,56 +1,114 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
 <title>SENTOX PRO</title>
+
+<style>
+body {
+  font-family: Arial;
+  background: #f4f7fa;
+  text-align: center;
+}
+
+.container {
+  background: white;
+  padding: 30px;
+  margin: 50px auto;
+  width: 400px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+input {
+  padding: 10px;
+  width: 70%;
+}
+
+button {
+  padding: 10px;
+  margin: 5px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #0056b3;
+}
+
+#resultat {
+  margin-top: 20px;
+  text-align: left;
+}
+</style>
 </head>
 
 <body>
 
-<h2>SENTOX PRO</h2>
+<div class="container">
+<h1>SENTOX PRO</h1>
 
-<input id="input" placeholder="paracetamol ou paracetamol, alcool">
-<button onclick="run()">Analyser</button>
-<button onclick="pdf()">PDF</button>
+<input id="input" placeholder="Produit">
+<br><br>
 
-<div id="res"></div>
+<button onclick="analyser()">Analyser</button>
+<button onclick="genererPDF()">PDF</button>
+
+<div id="resultat"></div>
+</div>
 
 <script>
-async function run() {
-  const val = document.getElementById("input").value;
 
-  if (val.includes(",")) {
-    const list = val.split(",").map(x => x.trim().toLowerCase());
+let lastData = null;
 
-    const r = await fetch("/interaction", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ produits: list })
-    });
+// Analyse
+async function analyser() {
+  const nom = document.getElementById("input").value;
 
-    const d = await r.json();
-    document.getElementById("res").innerHTML =
-      "Interactions:<br>" + d.interactions.join("<br>");
+  const res = await fetch("/analyser", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ nom })
+  });
 
-  } else {
-    const r = await fetch("/analyse?nom=" + val);
-    const d = await r.json();
+  const data = await res.json();
+  lastData = data;
 
-    document.getElementById("res").innerHTML = `
-      Produit: ${d.produit}<br>
-      Type: ${d.type}<br>
-      Risque: ${d.risque}<br>
-      Effets: ${d.effets}<br>
-      Conduite: ${d.conduite}<br>
-      IA: ${d.ia}
-    `;
+  document.getElementById("resultat").innerHTML = `
+    <p><b>Produit:</b> ${data.nom}</p>
+    <p><b>Type:</b> ${data.type}</p>
+    <p><b>Risque:</b> ${data.risque}</p>
+    <p><b>Effets:</b> ${data.effets}</p>
+    <p><b>Conduite:</b> ${data.conduite}</p>
+    <p><b>Source:</b> ${data.source}</p>
+  `;
+}
+
+// PDF
+async function genererPDF() {
+  if (!lastData) {
+    alert("Fais une analyse d'abord");
+    return;
   }
+
+  const res = await fetch("/pdf", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(lastData)
+  });
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "rapport_sentox.pdf";
+  a.click();
 }
 
-function pdf() {
-  const val = document.getElementById("input").value;
-  window.open("/pdf?nom=" + val);
-}
 </script>
 
 </body>

@@ -1,114 +1,109 @@
 const express = require("express");
-const cors = require("cors");
 const PDFDocument = require("pdfkit");
-const OpenAI = require("openai");
 const path = require("path");
 
-const produits = require("./data");
-
 const app = express();
-app.use(cors());
-app.use(express.json());
 
-// 👉 servir site web
-app.use(express.static("public"));
+// 🔥 IMPORTANT POUR RENDER
+const PORT = process.env.PORT || 5000;
 
-// 👉 IA
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+// 👉 servir le frontend
+app.use(express.static(path.join(__dirname, "public")));
 
-// 👉 score toxicité
-function getRisque(dl50) {
-  if (!dl50) return "Non déterminé";
-  if (dl50 < 50) return "Très toxique";
-  if (dl50 < 300) return "Toxique";
-  if (dl50 < 2000) return "Modéré";
-  return "Faible";
-}
+// =========================
+// BASE LOCALE
+// =========================
+const base = {
+  paracetamol: {
+    produit: "Paracétamol",
+    type: "Médicament",
+    risque: "Modéré",
+    effets: "Nausées, atteinte hépatique",
+    conduite: "Surveillance médicale",
+  },
+  glyphosate: {
+    produit: "Glyphosate",
+    type: "Herbicide",
+    risque: "Potentiellement cancérogène",
+    effets: "Irritation, toxicité chronique",
+    conduite: "Éviter exposition",
+  },
+  neem: {
+    produit: "Neem",
+    type: "Plante médicinale",
+    risque: "Modéré",
+    effets: "Vomissements",
+    conduite: "Surveillance",
+  },
+};
 
-// 👉 IA analyse
-async function analyseIA(nom) {
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "user", content: `Analyse toxicologique de ${nom}` }
-      ]
-    });
-
-    return response.choices[0].message.content;
-
-  } catch (e) {
-    return "Analyse IA locale (mode secours)";
-  }
-}
-
-// 👉 analyse simple
-app.get("/analyse", async (req, res) => {
+// =========================
+// API ANALYSE
+// =========================
+app.get("/analyse", (req, res) => {
   const nom = req.query.nom?.toLowerCase();
 
-  const produit = produits.find(p => p.nom === nom);
-
-  if (!produit) {
-    return res.json({ erreur: "Produit non trouvé" });
+  if (base[nom]) {
+    return res.json({
+      ...base[nom],
+      source: "Base SENTOX",
+    });
   }
 
-  const ia = await analyseIA(nom);
-
-  res.json({
-    produit: produit.nom,
-    type: produit.type,
-    risque: getRisque(produit.dl50),
-    effets: produit.effets,
-    conduite: produit.conduite,
-    interactions: produit.interactions,
-    ia: ia
+  // fallback IA simple
+  return res.json({
+    produit: nom,
+    type: "Analyse IA",
+    risque: "À déterminer",
+    effets: "Analyse en cours",
+    conduite: "Consulter un expert",
+    source: "IA",
   });
 });
 
-// 👉 interactions multiples
-app.post("/interaction", (req, res) => {
-  const liste = req.body.produits || [];
-  let alertes = [];
-
-  liste.forEach(p1 => {
-    const prod = produits.find(p => p.nom === p1);
-    if (prod) {
-      prod.interactions.forEach(i => {
-        if (liste.includes(i)) {
-          alertes.push(`${p1} ↔ ${i}`);
-        }
-      });
-    }
-  });
-
-  res.json({
-    interactions: alertes.length ? alertes : ["Aucune interaction"]
-  });
-});
-
-// 👉 PDF
+// =========================
+// PDF
+// =========================
 app.get("/pdf", (req, res) => {
   const nom = req.query.nom?.toLowerCase();
-  const produit = produits.find(p => p.nom === nom);
-
-  if (!produit) return res.send("Produit non trouvé");
+  const data = base[nom] || {
+    produit: nom,
+    type: "Analyse IA",
+    risque: "À déterminer",
+    effets: "Analyse en cours",
+    conduite: "Consulter un expert",
+  };
 
   const doc = new PDFDocument();
+
   res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    "attachment; filename=rapport_sentox.pdf"
+  );
+
   doc.pipe(res);
 
-  doc.fontSize(18).text("SENTOX PRO", { align: "center" });
-  doc.moveDown();
-  doc.text("Produit: " + produit.nom);
-  doc.text("Type: " + produit.type);
-  doc.text("Effets: " + produit.effets);
-  doc.text("Conduite: " + produit.conduite);
+  doc.fontSize(18).text("SENTOX PRO - Rapport Toxicologique\n");
+  doc.fontSize(12).text(`Produit: ${data.produit}`);
+  doc.text(`Type: ${data.type}`);
+  doc.text(`Risque: ${data.risque}`);
+  doc.text(`Effets: ${data.effets}`);
+  doc.text(`Conduite: ${data.conduite}`);
 
   doc.end();
 });
 
-app.listen(5000, "0.0.0.0", () => {
-  console.log("SENTOX PRO lancé sur http://localhost:5000");
+// =========================
+// ROUTE PRINCIPALE 🔥
+// =========================
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// =========================
+// LANCEMENT SERVEUR
+// =========================
+app.listen(PORT, () => {
+  console.log("Serveur lancé sur port " + PORT);
 });
