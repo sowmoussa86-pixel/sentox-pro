@@ -1,114 +1,95 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>SENTOX PRO</title>
+  <title>SENTOX PRO</title>
 
-<style>
-body {
-  font-family: Arial;
-  background: #f4f7fa;
-  text-align: center;
-}
+  <!-- favicon -->
+  <link rel="icon" type="image/png" href="favicon.png">
 
-.container {
-  background: white;
-  padding: 30px;
-  margin: 50px auto;
-  width: 400px;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-}
+  <style>
+    body {
+      font-family: Arial;
+      text-align: center;
+      background: #f5f7fa;
+    }
 
-input {
-  padding: 10px;
-  width: 70%;
-}
+    .box {
+      background: white;
+      padding: 30px;
+      margin: 50px auto;
+      width: 400px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
 
-button {
-  padding: 10px;
-  margin: 5px;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
+    input {
+      width: 90%;
+      padding: 10px;
+      margin: 10px;
+    }
 
-button:hover {
-  background: #0056b3;
-}
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
 
-#resultat {
-  margin-top: 20px;
-  text-align: left;
-}
-</style>
+    button:hover {
+      background: #0056b3;
+    }
+  </style>
 </head>
 
 <body>
 
-<div class="container">
-<h1>SENTOX PRO</h1>
+<div class="box">
 
-<input id="input" placeholder="Produit">
-<br><br>
+  <img src="logo.png" style="width:200px;">
 
-<button onclick="analyser()">Analyser</button>
-<button onclick="genererPDF()">PDF</button>
+  <h2>SENTOX PRO</h2>
 
-<div id="resultat"></div>
+  <input id="produit" placeholder="Entrer produit">
+
+  <br>
+
+  <button onclick="analyser()">Analyser</button>
+  <button onclick="pdf()">PDF</button>
+
+  <div id="resultat"></div>
+
 </div>
 
 <script>
-
-let lastData = null;
-
-// Analyse
 async function analyser() {
-  const nom = document.getElementById("input").value;
+  const produit = document.getElementById("produit").value;
 
-  const res = await fetch("/analyser", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ nom })
-  });
-
+  const res = await fetch("http://localhost:5000/analyse/" + produit);
   const data = await res.json();
-  lastData = data;
 
   document.getElementById("resultat").innerHTML = `
-    <p><b>Produit:</b> ${data.nom}</p>
+    <p><b>Produit:</b> ${data.produit}</p>
     <p><b>Type:</b> ${data.type}</p>
-    <p><b>Risque:</b> ${data.risque}</p>
+    <p><b>Toxicité:</b> ${data.toxicite?.nature || "-"}</p>
+    <p><b>Organe:</b> ${data.toxicite?.organe || "-"}</p>
+    <p><b>Dose faible:</b> ${data.dose?.faible || "-"}</p>
+    <p><b>Dose modérée:</b> ${data.dose?.moderee || "-"}</p>
+    <p><b>Dose élevée:</b> ${data.dose?.elevee || "-"}</p>
     <p><b>Effets:</b> ${data.effets}</p>
     <p><b>Conduite:</b> ${data.conduite}</p>
+    <p><b>Formule:</b> ${data.formule || "-"}</p>
+    <p><b>Poids:</b> ${data.poids || "-"}</p>
     <p><b>Source:</b> ${data.source}</p>
   `;
 }
 
-// PDF
-async function genererPDF() {
-  if (!lastData) {
-    alert("Fais une analyse d'abord");
-    return;
-  }
-
-  const res = await fetch("/pdf", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify(lastData)
-  });
-
-  const blob = await res.blob();
-  const url = window.URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "rapport_sentox.pdf";
-  a.click();
+function pdf() {
+  const produit = document.getElementById("produit").value;
+  window.open("http://localhost:5000/pdf/" + produit);
 }
-
 </script>
 
 </body>
